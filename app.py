@@ -3,77 +3,42 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image
 
-# ===============================
-# Load TFLite Model
-# ===============================
-
+# Load TFLite model
 interpreter = tf.lite.Interpreter(model_path="model.tflite")
 interpreter.allocate_tensors()
 
+# Get input and output details
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
 
 # Emotion labels
-emotion_labels = [
-    "angry",
-    "disgust",
-    "fear",
-    "happy",
-    "neutral",
-    "sad",
-    "surprise"
-]
+emotion_labels = {
+    0: "angry",
+    1: "disgust",
+    2: "fear",
+    3: "happy",
+    4: "neutral",
+    5: "sad",
+    6: "surprise"
+}
 
-# ===============================
-# Image Preprocessing
-# ===============================
-
-def prepare_image(image):
-    # Ensure 3 channels
-    image = image.convert("RGB")
-
-    # Resize to model input size
-    image = image.resize((224, 224))
-
-    # Convert to numpy
-    img_array = np.array(image)
-
-    # Match model dtype
-    if input_details[0]['dtype'] == np.float32:
-        img_array = img_array.astype(np.float32) / 255.0
-    else:
-        img_array = img_array.astype(input_details[0]['dtype'])
-
-    # Add batch dimension
+def prepare_image(img_pil):
+    img = img_pil.resize((224, 224))
+    img_array = np.array(img, dtype=np.float32)
+    img_array = img_array / 255.0
     img_array = np.expand_dims(img_array, axis=0)
-
     return img_array
 
-
-# ===============================
-# Prediction Function
-# ===============================
-
 def predict_emotion(image):
-    processed_image = prepare_image(image)
+    img = prepare_image(image)
 
-    # Set input tensor
-    interpreter.set_tensor(input_details[0]['index'], processed_image)
-
-    # Run inference
+    interpreter.set_tensor(input_details[0]['index'], img)
     interpreter.invoke()
 
-    # Get output tensor
-    prediction = interpreter.get_tensor(output_details[0]['index'])
+    output_data = interpreter.get_tensor(output_details[0]['index'])
+    predicted_class = int(np.argmax(output_data))
 
-    predicted_class = np.argmax(prediction)
-
-    return emotion_labels[predicted_class]
-
-
-# ===============================
-# Gradio Interface
-# ===============================
+    return emotion_labels.get(predicted_class, "Unknown")
 
 interface = gr.Interface(
     fn=predict_emotion,
@@ -83,5 +48,4 @@ interface = gr.Interface(
     description="Upload a face image and see the predicted emotion."
 )
 
-# For HuggingFace Spaces
-interface.launch(server_name="0.0.0.0", server_port=7860)
+interface.launch()
