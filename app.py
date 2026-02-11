@@ -1,38 +1,80 @@
 import gradio as gr
 import tensorflow as tf
 import numpy as np
-from tensorflow.keras.preprocessing.image import img_to_array
 from PIL import Image
 
-# Load trained model (inference mode)
-model = tf.keras.models.load_model("final_model.keras", compile=False)
+# ===============================
+# Load TFLite Model
+# ===============================
+
+interpreter = tf.lite.Interpreter(model_path="model.tflite")
+interpreter.allocate_tensors()
+
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
 
 # Emotion labels
-emotion_labels = {
-    0: "angry",
-    1: "disgust",
-    2: "fear",
-    3: "happy",
-    4: "neutral",
-    5: "sad",
-    6: "surprise"
-}
+emotion_labels = [
+    "angry",
+    "disgust",
+    "fear",
+    "happy",
+    "neutral",
+    "sad",
+    "surprise"
+]
 
-def prepare_image(img_pil):
-    """Preprocess image to match model input (224x224x3)."""
-    img = img_pil.resize((224, 224))
-    img_array = img_to_array(img)
+# ===============================
+# Image Preprocessing
+# ===============================
+
+def prepare_image(image):
+    # Ensure 3 channels
+    image = image.convert("RGB")
+
+    # Resize to model input size
+    image = image.resize((224, 224))
+
+    # Convert to numpy
+    img_array = np.array(image)
+
+    # Match model dtype
+    if input_details[0]['dtype'] == np.float32:
+        img_array = img_array.astype(np.float32) / 255.0
+    else:
+        img_array = img_array.astype(input_details[0]['dtype'])
+
+    # Add batch dimension
     img_array = np.expand_dims(img_array, axis=0)
-    img_array = img_array / 255.0
+
     return img_array
+
+
+# ===============================
+# Prediction Function
+# ===============================
 
 def predict_emotion(image):
     processed_image = prepare_image(image)
-    prediction = model.predict(processed_image, verbose=0)
-    predicted_class = np.argmax(prediction, axis=1)[0]
-    return emotion_labels.get(predicted_class, "Unknown")
 
-# Create Gradio Interface
+    # Set input tensor
+    interpreter.set_tensor(input_details[0]['index'], processed_image)
+
+    # Run inference
+    interpreter.invoke()
+
+    # Get output tensor
+    prediction = interpreter.get_tensor(output_details[0]['index'])
+
+    predicted_class = np.argmax(prediction)
+
+    return emotion_labels[predicted_class]
+
+
+# ===============================
+# Gradio Interface
+# ===============================
+
 interface = gr.Interface(
     fn=predict_emotion,
     inputs=gr.Image(type="pil"),
@@ -41,5 +83,5 @@ interface = gr.Interface(
     description="Upload a face image and see the predicted emotion."
 )
 
-#  PUBLIC LINK ENABLED
-interface.launch(share=True)
+# For HuggingFace Spaces
+interface.launch(server_name="0.0.0.0", server_port=7860)
