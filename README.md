@@ -12,4 +12,5 @@ license: mit
 short_description: Deep Learning based Facial Emotion Detection using ResNet50
 ---
 
-Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
+Check out the configuration reference at https://huggingface.co/spaces/ML18/facial-emotion-recognition
+
