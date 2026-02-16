@@ -1,5 +1,6 @@
 tensorflow==2.19.0
-keras==3.10.0
-gradio
+fastapi
+uvicorn
 numpy
-Pillow
+pillow
+python-multipart
